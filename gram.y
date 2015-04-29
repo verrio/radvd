@@ -52,7 +52,7 @@ static struct in6_addr get_prefix6(struct in6_addr const *addr, struct in6_addr 
 %token		T_RDNSS
 %token		T_DNSSL
 %token		T_CLIENTS
-%token		T_LOWPANCO
+%token		T_LOWPAN6CO
 %token		T_ABRO
 
 %token	<str>	STRING
@@ -111,16 +111,13 @@ static struct in6_addr get_prefix6(struct in6_addr const *addr, struct in6_addr 
 
 %token		T_AdvMobRtrSupportFlag
 
-%token		T_AdvContextLength
 %token		T_AdvContextCompressionFlag
 %token		T_AdvContextID
 %token		T_AdvLifeTime
-%token		T_AdvContextPrefix
 
 %token		T_AdvVersionLow
 %token		T_AdvVersionHigh
 %token		T_AdvValidLifeTime
-%token		T_Adv6LBRaddress
 
 %token		T_BAD_TOKEN
 
@@ -130,7 +127,7 @@ static struct in6_addr get_prefix6(struct in6_addr const *addr, struct in6_addr 
 %type	<rinfo>	routedef
 %type	<rdnssinfo> rdnssdef
 %type	<dnsslinfo> dnssldef
-%type   <lowpancoinfo> lowpancodef
+%type   <lowpan6coinfo> lowpan6codef
 %type   <abroinfo> abrodef
 %type   <num>	number_or_infinity
 
@@ -145,7 +142,7 @@ static struct in6_addr get_prefix6(struct in6_addr const *addr, struct in6_addr 
 	struct AdvRDNSS		*rdnssinfo;
 	struct AdvDNSSL		*dnsslinfo;
 	struct Clients		*ainfo;
-	struct AdvLowpanCo	*lowpancoinfo;
+	struct AdvLowpan6Co	*lowpan6coinfo;
 	struct AdvAbro		*abroinfo;
 };
 
@@ -158,7 +155,7 @@ static struct AdvPrefix *prefix;
 static struct AdvRoute *route;
 static struct AdvRDNSS *rdnss;
 static struct AdvDNSSL *dnssl;
-static struct AdvLowpanCo *lowpanco;
+static struct AdvLowpan6Co *lowpan6co;
 static struct AdvAbro  *abro;
 static void cleanup(void);
 #define ABORT	do { cleanup(); YYABORT; } while (0);
@@ -228,8 +225,8 @@ ifaceparam 	: ifaceval
 		| routedef 	{ ADD_TO_LL(struct AdvRoute, AdvRouteList, $1); }
 		| rdnssdef 	{ ADD_TO_LL(struct AdvRDNSS, AdvRDNSSList, $1); }
 		| dnssldef 	{ ADD_TO_LL(struct AdvDNSSL, AdvDNSSLList, $1); }
-		| lowpancodef   { ADD_TO_LL(struct AdvLowpanCo, AdvLowpanCoList, $1); }
-		| abrodef       { ADD_TO_LL(struct AdvAbro, AdvAbroList, $1); }
+		| lowpan6codef   { ADD_TO_LL(struct AdvLowpan6Co, AdvLowpan6CoList, $1); }
+		| abrodef       { iface->AdvAbroOpt = $1; }
 		;
 
 ifaceval	: T_MinRtrAdvInterval NUMBER ';'
@@ -913,49 +910,59 @@ dnsslparms	: T_AdvDNSSLLifetime number_or_infinity ';'
 		}
 		;
 
-lowpancodef 	: lowpancohead  '{' optional_lowpancoplist '}' ';'
+lowpan6codef 	: lowpan6cohead  '{' optional_lowpan6coplist '}' ';'
 		{
-			$$ = lowpanco;
-			lowpanco = NULL;
+			$$ = lowpan6co;
+			lowpan6co = NULL;
 		}
 		;
 
-lowpancohead	: T_LOWPANCO
+lowpan6cohead	: T_LOWPAN6CO IPV6ADDR '/' NUMBER
 		{
-			lowpanco = malloc(sizeof(struct AdvLowpanCo));
+			lowpan6co = malloc(sizeof(struct AdvLowpan6Co));
 
-			if (lowpanco == NULL) {
+			if (lowpan6co == NULL) {
 				flog(LOG_CRIT, "malloc failed: %s", strerror(errno));
 				ABORT;
 			}
+			
+			if ($4 > MAX_PrefixLen)
+			{
+				flog(LOG_ERR, "invalid 6CO prefix length in %s, line %d", filename, num_lines);
+				ABORT;
+			}
 
-			memset(lowpanco, 0, sizeof(struct AdvLowpanCo));
+			memset(lowpan6co, 0, sizeof(struct AdvLowpan6Co));
+			memcpy(&lowpan6co->AdvContextPrefix, $2, sizeof(struct in6_addr));
+			lowpan6co->ContextLength = $4;
 		}
 		;
 
-optional_lowpancoplist:
-		| lowpancoplist
+optional_lowpan6coplist:
+		| lowpan6coplist
 		;
 
-lowpancoplist	: lowpancoplist lowpancoparms
-		| lowpancoparms
+lowpan6coplist	: lowpan6coplist lowpan6coparms
+		| lowpan6coparms
 		;
 
-lowpancoparms 	: T_AdvContextLength NUMBER ';'
+lowpan6coparms 	: T_AdvContextCompressionFlag SWITCH ';'
 		{
-			lowpanco->ContextLength = $2;
-		}
-		| T_AdvContextCompressionFlag SWITCH ';'
-		{
-			lowpanco->ContextCompressionFlag = $2;
+			lowpan6co->ContextCompressionFlag = $2;
 		}
 		| T_AdvContextID NUMBER ';'
 		{
-			lowpanco->AdvContextID = $2;
+			if ($2 > MAX_6CO_CID)
+			{
+				flog(LOG_ERR, "invalid 6CO context identifier in %s, line %d", filename, num_lines);
+				ABORT;
+			}
+		
+			lowpan6co->AdvContextID = $2;
 		}
 		| T_AdvLifeTime NUMBER ';'
 		{
-			lowpanco->AdvLifeTime = $2;
+			lowpan6co->AdvLifeTime = $2;
 		}
 		;
 
@@ -970,11 +977,14 @@ abrohead	: T_ABRO IPV6ADDR '/' NUMBER
 		{
 			if ($4 > MAX_PrefixLen)
 			{
-				flog(LOG_ERR, "invalid abro prefix length in %s, line %d", filename, num_lines);
+				flog(LOG_ERR, "invalid ABRO prefix length in %s, line %d", filename, num_lines);
 				ABORT;
 			}
 
-			abro = malloc(sizeof(struct AdvAbro));
+			if (abro == NULL)
+			{
+				abro = malloc(sizeof(struct AdvAbro));
+			}
 
 			if (abro == NULL) {
 				flog(LOG_CRIT, "malloc failed: %s", strerror(errno));
@@ -1086,9 +1096,9 @@ static void cleanup(void)
 		dnssl = 0;
 	}
 
-	if (lowpanco) {
-		free(lowpanco);
-		lowpanco = 0;
+	if (lowpan6co) {
+		free(lowpan6co);
+		lowpan6co = 0;
 	}
 
 	if (abro) {

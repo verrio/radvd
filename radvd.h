@@ -112,8 +112,8 @@ struct Interface {
 		int AdvMobRtrSupportFlag;
 	} mipv6;
 
-	struct AdvLowpanCo *AdvLowpanCoList;
-	struct AdvAbro *AdvAbroList;
+	struct AdvLowpan6Co *AdvLowpan6CoList;
+	struct AdvAbro *AdvAbroOpt;
 
 	int lineno; /* On what line in the config file was this iface defined? */
 };
@@ -187,24 +187,22 @@ struct AdvDNSSL {
 	struct AdvDNSSL *next;
 };
 
-/* Options for 6lopan configuration */
+/* Options for 6LoWPAN configuration */
 
-struct AdvLowpanCo {
+struct AdvLowpan6Co {
 	uint8_t ContextLength;
 	uint8_t ContextCompressionFlag;
 	uint8_t AdvContextID;
 	uint16_t AdvLifeTime;
 	struct in6_addr AdvContextPrefix;
 
-	struct AdvLowpanCo *next;
+	struct AdvLowpan6Co *next;
 };
 
 struct AdvAbro {
 	uint16_t Version[2];
 	uint16_t ValidLifeTime;
 	struct in6_addr LBRaddress;
-
-	struct AdvAbro *next;
 };
 
 /* Mobile IPv6 extensions */
@@ -224,8 +222,6 @@ struct HomeAgentInfo {
 	uint16_t lifetime;
 };
 
-/* Uclibc : include/netinet/icmpv6.h - Added by Bhadram*/
-#define ND_OPT_ARO	33
 #define ND_OPT_6CO	34
 #define ND_OPT_ABRO	35
 
@@ -242,13 +238,11 @@ struct nd_opt_6co {
 	uint8_t nd_opt_6co_type;
 	uint8_t nd_opt_6co_len;
 	uint8_t nd_opt_6co_context_len;
-	uint8_t nd_opt_6co_res:3;
-	uint8_t nd_opt_6co_c:1;
-	uint8_t nd_opt_6co_cid:4;
+	uint8_t nd_opt_6co_res_c_cid;
 	uint16_t nd_opt_6co_reserved;
 	uint16_t nd_opt_6co_valid_lifetime;
 	struct in6_addr nd_opt_6co_con_prefix;
-};				/*Added by Bhadram */
+};
 
 /* gram.y */
 struct Interface *readin_config(char const *fname);

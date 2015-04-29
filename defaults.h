@@ -137,6 +137,12 @@
 #define DFLT_AdvIntervalOpt		0
 #define DFLT_AdvHomeAgentInfo		0
 
+/*
+ * 6LoWPAN limits
+ */
+#define MAX_6CO_CID		15
+
+
 /* Option types (defined also at least in glibc 2.2's netinet/icmp6.h) */
 
 #ifndef ND_OPT_RTR_ADV_INTERVAL

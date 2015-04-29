@@ -35,7 +35,7 @@ static void add_mtu(struct safe_buffer * sb, uint32_t AdvLinkMTU);
 static void add_sllao(struct safe_buffer * sb, struct sllao const *sllao);
 static void add_mipv6_rtr_adv_interval(struct safe_buffer * sb, double MaxRtrAdvInterval);
 static void add_mipv6_home_agent_info(struct safe_buffer * sb, struct mipv6 const * mipv6);
-static void add_lowpanco(struct safe_buffer * sb, struct AdvLowpanCo const *lowpanco);
+static void add_lowpan6co(struct safe_buffer * sb, struct AdvLowpan6Co const *lowpan6co);
 static void add_abro(struct safe_buffer * sb, struct AdvAbro const *abroo);
 
 #ifdef UNIT_TEST
@@ -534,25 +534,31 @@ static void add_mipv6_home_agent_info(struct safe_buffer * sb, struct mipv6 cons
 }
 
 /*
- * Add 6co option
+ * Add 6CO option(s)
  */
-static void add_lowpanco(struct safe_buffer * sb, struct AdvLowpanCo const *lowpanco)
+static void add_lowpan6co(struct safe_buffer * sb, struct AdvLowpan6Co const *lowpan6co)
 {
+	int counter;
 	struct nd_opt_6co co;
 
-	memset(&co, 0, sizeof(co));
+	for (counter = 0; lowpan6co && counter < 16; lowpan6co = lowpan6co->next) {
+		memset(&co, 0, sizeof(co));
 
-	co.nd_opt_6co_type = ND_OPT_6CO;
-	co.nd_opt_6co_len = 3;
-	co.nd_opt_6co_context_len = lowpanco->ContextLength;
-	co.nd_opt_6co_c = lowpanco->ContextCompressionFlag;
-	co.nd_opt_6co_cid = lowpanco->AdvContextID;
-	co.nd_opt_6co_valid_lifetime = lowpanco->AdvLifeTime;
-	co.nd_opt_6co_con_prefix = lowpanco->AdvContextPrefix;
+		co.nd_opt_6co_type = ND_OPT_6CO;
+		co.nd_opt_6co_len = (lowpan6co->ContextLength > 64 ? 3 : 2);
+		co.nd_opt_6co_context_len = lowpan6co->ContextLength;
+		co.nd_opt_6co_res_c_cid = lowpan6co->ContextCompressionFlag ? 0x10 : 0x00;
+		co.nd_opt_6co_res_c_cid |= (0x0F & lowpan6co->AdvContextID);
+		co.nd_opt_6co_valid_lifetime = ntohs(lowpan6co->AdvLifeTime);
+		co.nd_opt_6co_con_prefix = lowpan6co->AdvContextPrefix;
 
-	safe_buffer_append(sb, &co, sizeof(co));
+		safe_buffer_append(sb, &co, co.nd_opt_6co_len << 3);
+	}
 }
 
+/*
+ * Add Authoritative Border Router option
+ */
 static void add_abro(struct safe_buffer * sb, struct AdvAbro const *abroo)
 {
 	struct nd_opt_abro abro;
@@ -561,9 +567,9 @@ static void add_abro(struct safe_buffer * sb, struct AdvAbro const *abroo)
 
 	abro.nd_opt_abro_type = ND_OPT_ABRO;
 	abro.nd_opt_abro_len = 3;
-	abro.nd_opt_abro_ver_low = abroo->Version[1];
-	abro.nd_opt_abro_ver_high = abroo->Version[0];
-	abro.nd_opt_abro_valid_lifetime = abroo->ValidLifeTime;
+	abro.nd_opt_abro_ver_low = ntohs(abroo->Version[1]);
+	abro.nd_opt_abro_ver_high = ntohs(abroo->Version[0]);
+	abro.nd_opt_abro_valid_lifetime = ntohs(abroo->ValidLifeTime);
 	abro.nd_opt_abro_6lbr_address = abroo->LBRaddress;
 
 	safe_buffer_append(sb, &abro, sizeof(abro));
@@ -608,12 +614,12 @@ static void build_ra(struct safe_buffer * sb, struct Interface const * iface)
 		add_mipv6_home_agent_info(sb, &iface->mipv6);
 	}
 
-	if (iface->AdvLowpanCoList) {
-		add_lowpanco(sb, iface->AdvLowpanCoList);
+	if (iface->AdvLowpan6CoList) {
+		add_lowpan6co(sb, iface->AdvLowpan6CoList);
 	}
 
-	if (iface->AdvAbroList) {
-		add_abro(sb, iface->AdvAbroList);
+	if (iface->AdvAbroOpt) {
+		add_abro(sb, iface->AdvAbroOpt);
 	}
 }
 

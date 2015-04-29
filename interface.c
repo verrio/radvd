@@ -385,6 +385,18 @@ static void free_iface_list(struct Interface *iface)
 			dnssl = next_dnssl;
 		}
 
+		struct AdvLowpan6Co *AdvLowpan6CoList = iface->AdvLowpan6CoList;
+		while (AdvLowpan6CoList) {
+			struct AdvLowpan6Co *next = AdvLowpan6CoList->next;
+
+			free(AdvLowpan6CoList);
+			AdvLowpan6CoList = next;
+		}
+
+		if (iface->AdvAbroOpt) {
+			free(iface->AdvAbroOpt);
+		}
+
 		struct Clients *clients = iface->ClientList;
 		while (clients) {
 			struct Clients *next_client = clients->next;

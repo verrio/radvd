@@ -48,7 +48,7 @@ route			{ return T_ROUTE; }
 RDNSS			{ return T_RDNSS; }
 DNSSL			{ return T_DNSSL; }
 clients			{ return T_CLIENTS; }
-lowpanco		{ return T_LOWPANCO; }
+lowpan6co		{ return T_LOWPAN6CO; }
 abro			{ return T_ABRO; }
 
 IgnoreIfMissing		{ return T_IgnoreIfMissing; }
@@ -100,16 +100,13 @@ MinDelayBetweenRAs      { return T_MinDelayBetweenRAs; }
 
 AdvMobRtrSupportFlag	{ return T_AdvMobRtrSupportFlag; }
 
-AdvContextLength	{ return T_AdvContextLength; }
 AdvContextCompressionFlag { return T_AdvContextCompressionFlag; }
 AdvContextID		{ return T_AdvContextID; }
 AdvLifeTime		{ return T_AdvLifeTime; }
-AdvContextPrefix	{ return T_AdvContextPrefix; }
 
 AdvVersionLow		{ return T_AdvVersionLow; }
 AdvVersionHigh		{ return T_AdvVersionHigh; }
 AdvValidLifeTime	{ return T_AdvValidLifeTime; }
-Adv6LBRaddress		{ return T_Adv6LBRaddress; }
 
 {addr}		{
 			static struct in6_addr addr;
