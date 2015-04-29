@@ -541,7 +541,7 @@ static void add_lowpan6co(struct safe_buffer * sb, struct AdvLowpan6Co const *lo
 	int counter;
 	struct nd_opt_6co co;
 
-	for (counter = 0; lowpan6co && counter < 16; lowpan6co = lowpan6co->next) {
+	for (counter = 0; lowpan6co && counter < 16; lowpan6co = lowpan6co->next, counter++) {
 		memset(&co, 0, sizeof(co));
 
 		co.nd_opt_6co_type = ND_OPT_6CO;
